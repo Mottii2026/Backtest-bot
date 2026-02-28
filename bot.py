@@ -10,10 +10,19 @@ logger=logging.getLogger(__name__)
 SCOPES=['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
 
 def get_sheet():
-    creds_dict=json.loads(os.environ.get("GOOGLE_CREDENTIALS_JSON"))
-    creds=Credentials.from_service_account_info(creds_dict,scopes=SCOPES)
-    client=gspread.authorize(creds)
-    return client.open_by_key(os.environ.get("GOOGLE_SHEET_ID"))
+    try:
+        creds_json=os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if not creds_json:
+            raise Exception("GOOGLE_CREDENTIALS_JSON bos!")
+        creds_dict=json.loads(creds_json)
+        creds=Credentials.from_service_account_info(creds_dict,scopes=SCOPES)
+        client=gspread.authorize(creds)
+        sheet_id=os.environ.get("GOOGLE_SHEET_ID")
+        if not sheet_id:
+            raise Exception("GOOGLE_SHEET_ID bos!")
+        return client.open_by_key(sheet_id)
+    except Exception as e:
+        raise Exception(f"Baglanti hatasi: {type(e).__name__}: {str(e)[:300]}")
 
 def get_ws(name,headers):
     ss=get_sheet()
