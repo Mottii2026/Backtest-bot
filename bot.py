@@ -19,7 +19,7 @@ def get_ws(name,headers):
     ss=get_sheet()
     try:
         return ss.worksheet(name)
-    except:
+    except Exception:
         ws=ss.add_worksheet(name,rows=1000,cols=15)
         ws.append_row(headers)
         return ws
@@ -37,7 +37,7 @@ def get_ayar(p):
         for r in rows:
             if r.get("Parametre")==p:
                 return float(r.get("Deger",0))
-    except:
+    except Exception:
         pass
     return defaults.get(p,0)
 
@@ -46,13 +46,13 @@ def set_ayar(p,v):
     try:
         cell=ws.find(p)
         ws.update_cell(cell.row,2,str(v))
-    except:
+    except Exception:
         ws.append_row([p,str(v)])
 
 def hesapla(hisse):
     try:
         rows=[r for r in get_islemler().get_all_records() if str(r.get("Hisse","")).upper()==hisse.upper()]
-    except:
+    except Exception:
         return 0,0,0
     al=0
     am=0
@@ -75,7 +75,7 @@ def ana_para():
         rows=get_islemler().get_all_records()
         kz=sum(float(r.get("KZTL",0) or 0) for r in rows)
         return get_ayar("Ana Para")+kz
-    except:
+    except Exception:
         return get_ayar("Ana Para")
 
 def yeni_id():
@@ -83,22 +83,22 @@ def yeni_id():
         rows=get_islemler().get_all_records()
         ids=[int(r.get("ID",0) or 0) for r in rows if r.get("ID")]
         return max(ids)+1 if ids else 1
-    except:
+    except Exception:
         return 1
 
 def fp(n):
     try:
         return f"{float(n):,.2f} TL"
-    except:
+    except Exception:
         return "0 TL"
 
 def fn(n,d=2):
     try:
         return f"{float(n):,.{d}f}"
-    except:
+    except Exception:
         return "0"
 
-def h(ort):
+def hd(ort):
     sp=get_ayar("Stop")
     t1=get_ayar("TP1")
     t2=get_ayar("TP2")
@@ -106,30 +106,7 @@ def h(ort):
     return {"stop":ort*(1-sp/100),"be":ort,"tp1":ort*(1+t1/100),"tp2":ort*(1+t2/100),"tp3":ort*(1+t3/100),"sp":sp,"t1":t1,"t2":t2,"t3":t3}
 
 async def start(update,context):
-    msg=("📊 *BACKTEST BOT*\n\n"
-"📥 *ALIS*\n"
-"`/long HISSE FIYAT LOT`\n"
-"`/dca1 HISSE FIYAT LOT`\n"
-"`/dca2 HISSE FIYAT LOT`\n"
-"`/dca3 HISSE FIYAT LOT`\n\n"
-"📤 *KAPANIS*\n"
-"`/tp1 HISSE FIYAT LOT`\n"
-"`/tp2 HISSE FIYAT LOT`\n"
-"`/tp3 HISSE FIYAT LOT`\n"
-"`/be HISSE FIYAT LOT`\n"
-"`/stop HISSE FIYAT LOT`\n\n"
-"📊 *SORGULAMA*\n"
-"`/durum HISSE`\n"
-"`/ozet`\n"
-"`/stats`\n\n"
-"⚙️ *AYARLAR*\n"
-"`/ayarlar`\n"
-"`/set stop 10`\n"
-"`/set tp1 8`\n"
-"`/set tp2 15`\n"
-"`/set tp3 30`\n"
-"`/set para 100000`\n\n"
-"Ornek: `/long RYGYO 22.50 5000`")
+    msg=("*BACKTEST BOT*\n\nALIS:\n/long HISSE FIYAT LOT\n/dca1 HISSE FIYAT LOT\n/dca2 HISSE FIYAT LOT\n/dca3 HISSE FIYAT LOT\n\nKAPANIS:\n/tp1 HISSE FIYAT LOT\n/tp2 HISSE FIYAT LOT\n/tp3 HISSE FIYAT LOT\n/be HISSE FIYAT LOT\n/stop HISSE FIYAT LOT\n\nSORGULAMA:\n/durum HISSE\n/ozet\n/stats\n\nAYARLAR:\n/ayarlar\n/set stop 10\n/set tp1 8\n/set tp2 15\n/set tp3 30\n/set para 100000\n\nOrnek: /long RYGYO 22.50 5000")
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def alis(update,context,tip):
@@ -141,32 +118,33 @@ async def alis(update,context,tip):
     try:
         fiyat=float(args[1].replace(",","."))
         lot=float(args[2].replace(",","."))
-    except:
+    except Exception:
         await update.message.reply_text("Fiyat ve lot sayi olmali!")
         return
     toplam=fiyat*lot
     tarih=datetime.now().strftime("%d.%m.%Y %H:%M")
-    ws=get_islemler()
-    nid=yeni_id()
-    ws.append_row([nid,hisse,tip.upper(),tarih,fiyat,lot,toplam,"","","","",""])
+    try:
+        ws=get_islemler()
+        nid=yeni_id()
+        ws.append_row([nid,hisse,tip.upper(),tarih,fiyat,lot,toplam,"","","","",""])
     except Exception as e:
-        await update.message.reply_text(f"Sheets hatasi: {str(e)}")
-        return 
+        await update.message.reply_text(f"Sheets hatasi: {str(e)[:200]}")
+        return
     ort,acik,acik_m=hesapla(hisse)
-    hd=h(ort)
+    h=hd(ort)
     msg=(f"ALIS: *{hisse} - {tip.upper()}*\n"
-f"Fiyat: `{fn(fiyat)}` | Lot: `{fn(lot,0)}`\n"
-f"Toplam: `{fp(toplam)}`\n"
-f"Ortalama: `{fn(ort)}`\n"
-f"Acik Lot: `{fn(acik,0)}`\n\n"
-f"HEDEFLER:\n"
-f"STOP (%{hd['sp']}): `{fn(hd['stop'])}`\n"
-f"BE: `{fn(hd['be'])}`\n"
-f"TP1 (%{hd['t1']}): `{fn(hd['tp1'])}`\n"
-f"TP2 (%{hd['t2']}): `{fn(hd['tp2'])}`\n"
-f"TP3 (%{hd['t3']}): `{fn(hd['tp3'])}`\n\n"
-f"Ana Para: `{fp(ana_para())}`\n"
-f"Kaydedildi (#{nid})")
+         f"Fiyat: {fn(fiyat)} | Lot: {fn(lot,0)}\n"
+         f"Toplam: {fp(toplam)}\n"
+         f"Ortalama: {fn(ort)}\n"
+         f"Acik Lot: {fn(acik,0)}\n\n"
+         f"HEDEFLER:\n"
+         f"STOP (%{h['sp']}): {fn(h['stop'])}\n"
+         f"BE: {fn(h['be'])}\n"
+         f"TP1 (%{h['t1']}): {fn(h['tp1'])}\n"
+         f"TP2 (%{h['t2']}): {fn(h['tp2'])}\n"
+         f"TP3 (%{h['t3']}): {fn(h['tp3'])}\n\n"
+         f"Ana Para: {fp(ana_para())}\n"
+         f"Kaydedildi (#{nid})")
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def long_cmd(u,c): await alis(u,c,"LONG")
@@ -183,7 +161,7 @@ async def kapanis(update,context,tip):
     try:
         kf=float(args[1].replace(",","."))
         kl=float(args[2].replace(",","."))
-    except:
+    except Exception:
         await update.message.reply_text("Fiyat ve lot sayi olmali!")
         return
     ort,acik,acik_m=hesapla(hisse)
@@ -191,29 +169,33 @@ async def kapanis(update,context,tip):
         await update.message.reply_text(f"{hisse} icin acik pozisyon yok!")
         return
     if kl>acik:
-        await update.message.reply_text(f"Kapanacak lot ({fn(kl,0)}) acik lottan ({fn(acik,0)}) fazla!")
+        await update.message.reply_text(f"Kapanacak lot acik lottan fazla!")
         return
     kz_tl=(kf-ort)*kl
     kz_pct=((kf/ort)-1)*100
     tarih=datetime.now().strftime("%d.%m.%Y %H:%M")
-    ws=get_islemler()
-    nid=yeni_id()
-    ws.append_row([nid,hisse,tip.upper(),tarih,"","","",kf,kl,round(kz_tl,2),round(kz_pct,2),""])
+    try:
+        ws=get_islemler()
+        nid=yeni_id()
+        ws.append_row([nid,hisse,tip.upper(),tarih,"","","",kf,kl,round(kz_tl,2),round(kz_pct,2),""])
+    except Exception as e:
+        await update.message.reply_text(f"Sheets hatasi: {str(e)[:200]}")
+        return
     yort,yacik,yacik_m=hesapla(hisse)
     ap=ana_para()
     msg=(f"KAPANIS: *{hisse} - {tip.upper()}*\n"
-f"Ortalama: `{fn(ort)}`\n"
-f"Kapanis: `{fn(kf)}` | Lot: `{fn(kl,0)}`\n\n"
-f"KAR/ZARAR:\n"
-f"TL: `{fp(kz_tl)}`\n"
-f"Yuzde: `{kz_pct:+.2f}%`\n\n")
+         f"Ortalama: {fn(ort)}\n"
+         f"Kapanis: {fn(kf)} | Lot: {fn(kl,0)}\n\n"
+         f"KAR/ZARAR:\n"
+         f"TL: {fp(kz_tl)}\n"
+         f"Yuzde: {kz_pct:+.2f}%\n\n")
     if yacik>0:
-        hd=h(yort)
-        msg+=(f"Kalan Lot: `{fn(yacik,0)}`\n"
-f"STOP: `{fn(hd['stop'])}` | TP1: `{fn(hd['tp1'])}`\n\n")
+        h=hd(yort)
+        msg+=(f"Kalan Lot: {fn(yacik,0)}\n"
+              f"STOP: {fn(h['stop'])} | TP1: {fn(h['tp1'])}\n\n")
     else:
         msg+="Pozisyon tamamen kapandi!\n\n"
-    msg+=f"Ana Para: `{fp(ap)}`\nKaydedildi (#{nid})"
+    msg+=f"Ana Para: {fp(ap)}\nKaydedildi (#{nid})"
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def tp1_cmd(u,c): await kapanis(u,c,"TP1")
@@ -231,25 +213,25 @@ async def durum_cmd(update,context):
     if ort==0:
         await update.message.reply_text(f"{hisse} bulunamadi!")
         return
-    hd=h(ort)
+    h=hd(ort)
     durum="ACIK" if acik>0 else "KAPALI"
     msg=(f"*{hisse} - {durum}*\n"
-f"Ortalama: `{fn(ort)}`\n"
-f"Acik Lot: `{fn(acik,0)}`\n"
-f"Acik Poz: `{fp(acik_m)}`\n\n"
-f"HEDEFLER:\n"
-f"STOP (%{hd['sp']}): `{fn(hd['stop'])}`\n"
-f"BE: `{fn(hd['be'])}`\n"
-f"TP1 (%{hd['t1']}): `{fn(hd['tp1'])}`\n"
-f"TP2 (%{hd['t2']}): `{fn(hd['tp2'])}`\n"
-f"TP3 (%{hd['t3']}): `{fn(hd['tp3'])}`")
+         f"Ortalama: {fn(ort)}\n"
+         f"Acik Lot: {fn(acik,0)}\n"
+         f"Acik Poz: {fp(acik_m)}\n\n"
+         f"HEDEFLER:\n"
+         f"STOP (%{h['sp']}): {fn(h['stop'])}\n"
+         f"BE: {fn(h['be'])}\n"
+         f"TP1 (%{h['t1']}): {fn(h['tp1'])}\n"
+         f"TP2 (%{h['t2']}): {fn(h['tp2'])}\n"
+         f"TP3 (%{h['t3']}): {fn(h['tp3'])}")
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def ozet_cmd(update,context):
     try:
         rows=get_islemler().get_all_records()
-    except:
-        await update.message.reply_text("Henuz islem yok!")
+    except Exception as e:
+        await update.message.reply_text(f"Sheets hatasi: {str(e)[:200]}")
         return
     if not rows:
         await update.message.reply_text("Henuz islem yok!")
@@ -258,24 +240,24 @@ async def ozet_cmd(update,context):
     ap_bas=get_ayar("Ana Para")
     kz=sum(float(r.get("KZTL",0) or 0) for r in rows)
     msg=(f"*PORTFOY*\n"
-f"Baslangic: `{fp(ap_bas)}`\n"
-f"Guncel: `{fp(ap_bas+kz)}`\n"
-f"Net K/Z: `{fp(kz)}`\n\n")
+         f"Baslangic: {fp(ap_bas)}\n"
+         f"Guncel: {fp(ap_bas+kz)}\n"
+         f"Net K/Z: {fp(kz)}\n\n")
     for hs in sorted(hisseler):
         ort,acik,acik_m=hesapla(hs)
         hkz=sum(float(r.get("KZTL",0) or 0) for r in rows if str(r.get("Hisse","")).upper()==hs.upper())
         if acik>0:
-            hd=h(ort)
-            msg+=f"ACIK *{hs}* | Ort:`{fn(ort)}` | Lot:`{fn(acik,0)}`\nSTOP:`{fn(hd['stop'])}` TP1:`{fn(hd['tp1'])}`\n\n"
+            h=hd(ort)
+            msg+=f"ACIK *{hs}* | Ort:{fn(ort)} | Lot:{fn(acik,0)}\nSTOP:{fn(h['stop'])} TP1:{fn(h['tp1'])}\n\n"
         else:
-            msg+=f"KAPALI *{hs}* K/Z:`{fp(hkz)}`\n\n"
+            msg+=f"KAPALI *{hs}* K/Z:{fp(hkz)}\n\n"
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def stats_cmd(update,context):
     try:
         rows=get_islemler().get_all_records()
-    except:
-        await update.message.reply_text("Henuz islem yok!")
+    except Exception as e:
+        await update.message.reply_text(f"Sheets hatasi: {str(e)[:200]}")
         return
     krows=[r for r in rows if str(r.get("Tip","")).upper() in ["TP1","TP2","TP3","BE","STOP"]]
     if not krows:
@@ -287,23 +269,23 @@ async def stats_cmd(update,context):
     ap=get_ayar("Ana Para")
     ko=len(kazanli)/len(krows)*100 if krows else 0
     msg=(f"*ISTATISTIKLER*\n"
-f"Net K/Z: `{fp(tkz)}` ({tkz/ap*100:+.2f}%)\n"
-f"Toplam islem: {len(krows)}\n"
-f"Karli: {len(kazanli)} | Zararli: {len(zarar)}\n"
-f"Kazanma: `{ko:.1f}%`\n"
-f"TP1:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP1')} "
-f"TP2:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP2')} "
-f"TP3:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP3')} "
-f"STOP:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='STOP')}")
+         f"Net K/Z: {fp(tkz)} ({tkz/ap*100:+.2f}%)\n"
+         f"Toplam islem: {len(krows)}\n"
+         f"Karli: {len(kazanli)} | Zararli: {len(zarar)}\n"
+         f"Kazanma: {ko:.1f}%\n"
+         f"TP1:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP1')} "
+         f"TP2:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP2')} "
+         f"TP3:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='TP3')} "
+         f"STOP:{sum(1 for r in krows if str(r.get('Tip','')).upper()=='STOP')}")
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def ayarlar_cmd(update,context):
     msg=(f"*AYARLAR*\n"
-f"Ana Para: `{fp(get_ayar('Ana Para'))}`\n"
-f"Stop: `{get_ayar('Stop')}%`\n"
-f"TP1: `{get_ayar('TP1')}%`\n"
-f"TP2: `{get_ayar('TP2')}%`\n"
-f"TP3: `{get_ayar('TP3')}%`")
+         f"Ana Para: {fp(get_ayar('Ana Para'))}\n"
+         f"Stop: {get_ayar('Stop')}%\n"
+         f"TP1: {get_ayar('TP1')}%\n"
+         f"TP2: {get_ayar('TP2')}%\n"
+         f"TP3: {get_ayar('TP3')}%")
     await update.message.reply_text(msg,parse_mode="Markdown")
 
 async def set_cmd(update,context):
@@ -313,14 +295,14 @@ async def set_cmd(update,context):
         return
     try:
         v=float(context.args[1].replace(",","."))
-    except:
+    except Exception:
         await update.message.reply_text("Deger sayi olmali!")
         return
     p=pm[context.args[0].lower()]
     set_ayar(p,v)
     await update.message.reply_text(f"{p} -> {v} guncellendi!")
 
-async def hata(update,context):
+async def hata_handler(update,context):
     logger.error(f"Hata: {context.error}")
 
 def main():
@@ -342,7 +324,7 @@ def main():
     app.add_handler(CommandHandler("stats",stats_cmd))
     app.add_handler(CommandHandler("ayarlar",ayarlar_cmd))
     app.add_handler(CommandHandler("set",set_cmd))
-    app.add_error_handler(hata)
+    app.add_error_handler(hata_handler)
     logger.info("Bot baslatiliyor...")
     app.run_polling(drop_pending_updates=True)
 
