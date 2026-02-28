@@ -28,10 +28,14 @@ def get_ws(name,headers):
     ss=get_sheet()
     try:
         return ss.worksheet(name)
-    except Exception:
-        ws=ss.add_worksheet(name,rows=1000,cols=15)
-        ws.append_row(headers)
-        return ws
+    except Exception as e1:
+        try:
+            ws=ss.add_worksheet(name,rows=1000,cols=15)
+            ws.append_row(headers)
+            return ws
+        except Exception as e2:
+            raise Exception(f"Worksheet hatasi: {str(e1)} | {str(e2)}")
+C
 
 def get_islemler():
     return get_ws("Islemler",["ID","Hisse","Tip","Tarih","Fiyat","Lot","Toplam","KapFiyat","KapLot","KZTL","KZPct","Not"])
