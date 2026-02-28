@@ -149,6 +149,9 @@ async def alis(update,context,tip):
     ws=get_islemler()
     nid=yeni_id()
     ws.append_row([nid,hisse,tip.upper(),tarih,fiyat,lot,toplam,"","","","",""])
+    except Exception as e:
+        await update.message.reply_text(f"Sheets hatasi: {str(e)}")
+        return 
     ort,acik,acik_m=hesapla(hisse)
     hd=h(ort)
     msg=(f"ALIS: *{hisse} - {tip.upper()}*\n"
